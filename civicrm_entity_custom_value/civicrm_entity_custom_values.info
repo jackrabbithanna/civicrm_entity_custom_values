@@ -1,0 +1,9 @@
+name = CiviCRM Entity Custom Values
+description = "Exposes the CiviCRM API entity CustomValues and integrates it with CiviCRM Entity."
+dependencies[] = entity
+package = CiviCRM
+core = 7.x
+
+files[] = civicrm_entity_custom_values.entity.inc
+files[] = civicrm_entity_custom_values.views.inc
+files[] = CiviCRMCustomValueWrapper.inc

@@ -1,0 +1,229 @@
+<?php
+
+/**
+ * @file
+ * CiviCRM Custom Values module.
+ */
+
+/**
+ * Implements hook_entity_info().
+ */
+function civicrm_entity_custom_values_entity_info() {
+  $items['civicrm_custom_value'] = array(
+    'label' => t('Custom Value'),
+    'plural label' => t('Custom Values'),
+    'description' => t('CiviCRM Custom Value entities, represents all custom groups and fields for an CiviCRM Entity.'),
+    'entity class' => 'CiviCRMCustomValueEntity',
+    'controller class' => 'CiviCRMCustomValueEntityController',
+    'fieldable' => FALSE,
+    'entity keys' => array(
+     // 'name' => 'entity_table',
+      'id' => 'entity_id',
+     // 'bundle' => 'custom_group'
+    ),
+    'module' => 'civicrm_entity_custom_values',
+    'wrapper class' => 'CiviCRMCustomValueWrapper',
+  );
+
+  return $items;
+}
+
+/*
+function civicrm_entity_custom_values_entity_info_alter(&$entity_info) {
+  $custom_group_query = new EntityFieldQuery();
+  $custom_groups = $custom_group_query->entityCondition('entity_type', 'civicrm_custom_group')
+      ->execute();
+  if(isset($custom_groups['civicrm_custom_group'])){
+    $groups = entity_load('civicrm_custom_group', array_keys($custom_groups['civicrm_custom_group']));
+  }
+  $items['civicrm_custom_value']['bundles'] = array();
+  foreach($groups as $group){
+    $entity_info['civicrm_custom_value']['bundles'][$group->name]['label'] = $group->title;
+  }
+}*/
+
+/**
+ * Implements hook_entity_property_info().
+ */
+function civicrm_entity_custom_values_entity_property_info() {
+
+  $info['civicrm_custom_value']['properties'] = array(
+    'entity_table' => array(
+      'label' => t('Entity Table'),
+      'type' => 'text',
+    ),
+    'entity_id' => array(
+      'label' => t('Entity ID'),
+      'type' => 'integer',
+    ),
+    'groups' => array(
+      'label' => t('Groups'),
+      'type' => 'struct',
+      'property info' => array(
+        'custom_group_id' => array(
+          'label' => t('Custom Group ID'),
+          'type' => 'integer',
+        ),
+        'name' => array(
+          'label' => t('Name'),
+          'type' => 'text',
+        ),
+        'title' => array(
+          'label' => t('Title'),
+          'type' => 'text',
+        ),
+        'fields' => array(
+          'label' => t('Fields'),
+          'type' => 'struct',
+          'property info' => array(
+            'entity_id' => array(
+              'label' => t('Entity ID'),
+              'type' => 'integer',
+            ),
+            'latest' => array(
+              'label' => t('Latest'),
+              'type' => 'text',
+            ),
+            'id' => array(
+              'label' => t('ID'),
+              'type' => 'integer',
+            ),
+            'values' => array(
+              'label' => t('Values'),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+
+  return $info;
+}
+
+
+
+/**
+ * Implements hook_views_api().
+ */
+function civicrm_entity_custom_values_views_api() {
+  return array(
+    'api' => '3.0',
+    'path' => drupal_get_path('module', 'civicrm_entity_custom_values'),
+  );
+}
+
+function civicrm_entity_custom_values_get_field_info($civicrm_entity, $fieldname, $field_specs, $context = ''){
+  // Type is empty for custom fields - we should sort that out but
+  // skipping for now we are only doing 'integers' at this stage.
+  $types = array(
+      1 => 'integer',
+      2 => 'text',
+      32 => 'text',
+      16 => 'integer',
+      4 => 'datetime',
+      8 => 'datetime',
+      12 => 'datetime',
+      256 => 'datetime',
+      512 => 'decimal',
+      1024 => 'decimal',
+  );
+  if (!empty($field_specs['type']) &&
+      array_key_exists($field_specs['type'], $types)
+  ) {
+    //determine the label of the field
+    $label = _civicrm_entity_get_title($field_specs);
+    $info[$fieldname] = array(
+        'label' => $label,
+        'type' => $types[$field_specs['type']],
+        'sanitize' => 'check_plain',
+        'setter callback' => 'entity_property_verbatim_set',
+    );
+    if (!empty($field_specs['api.required'])) {
+      $info[$fieldname]['required'] = TRUE;
+    }
+    if ($field_specs['type'] == 16) {
+      $info[$fieldname]['size'] = 'tiny';
+    }
+    if ($types[$field_specs['type']] == 'datetime') {
+      unset($info[$fieldname]['type']);
+      $info[$fieldname]['mysql_type'] = 'datetime';
+      $info[$fieldname]['tz_handling'] = 'site';
+      $info[$fieldname]['offset_field'] = '';
+      $info[$fieldname]['related_fields'] = array();
+      switch ($field_specs['type']) {
+        case 4:
+          $info[$fieldname]['granularity'] = array('year', 'month', 'day');
+          break;
+        case 8:
+          $info[$fieldname]['granularity'] = array(
+              'hour',
+              'minute',
+              'second'
+          );
+        case 12:
+          $info[$fieldname]['granularity'] = array(
+              'year',
+              'month',
+              'day',
+              'hour',
+              'minute',
+              'second'
+          );
+      }
+    }
+    // This is a semi-reliable way of distinguishing 'real' fields
+    // from pseudo fields and custom fields and impacts on views
+    if (!empty($field_specs['name'])) {
+      $info[$fieldname]['schema field'] = $field_specs['name'];
+    }
+
+    //widget code
+    $info[$fieldname]['widget'] = civicrm_entity_get_field_widget($field_specs,$civicrm_entity);
+
+    // We will add contact as a related entity for FK references to
+    // contact. This could be expanded to all FKs e.g event_id in
+    // Participant. Could load the event at the moment we are being
+    // cautious.
+    if (CRM_Utils_Array::value('FKClassName', $field_specs)) {
+      $fks = _civicrm_entity_chained_fks();
+      if (array_key_exists($field_specs['FKClassName'], $fks)) {
+        $fks_entity = $fks[$field_specs['FKClassName']];
+        $info[$fieldname . '_' . $fks_entity] = array(
+            'label' => _civicrm_entity_get_title($field_specs),
+            'type' => 'civicrm_' . $fks_entity,
+            'property_info' => array(
+                'field' => $fieldname,
+                'entity' => $fks_entity,
+            ),
+            'getter callback' => 'civicrm_entity_metadata_civicrm_entity_get_properties',
+        );
+      }
+    }
+    // @TODO We are treating contact as the only possible entity
+    // which is not great - need to figure out better approach - can
+    // we have more than one? Define 'civicrm_entity'?
+    if ($fieldname == 'entity_id') {
+      $fks_entity = 'contact';
+      $info[$fieldname . '_' . $fks_entity] = array(
+          'label' => _civicrm_entity_get_title($field_specs),
+          'type' => 'civicrm_' . $fks_entity,
+          'property_info' => array(
+              'field' => $fieldname,
+              'entity' => $fks_entity,
+          ),
+          'getter callback' => 'civicrm_entity_metadata_civicrm_entity_get_properties',
+      );
+    }
+
+    if (!empty($field_specs['options'])) {
+      // $info[$fieldname]['type'] = 'list<integer>';
+      $info[$fieldname]['options list'] = '_civicrm_entity_rules_attach_options';
+      $info[$fieldname]['options data'] = $field_specs['options'];
+      if ($context == 'property_info') {
+        $info[$fieldname]['property defaults']['options list'] = $field_specs['options'];
+      }
+    }
+  return $info;
+  }
+
+}
