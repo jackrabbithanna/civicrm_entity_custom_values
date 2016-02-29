@@ -25,6 +25,7 @@ class CiviCRMCustomValueWrapper extends EntityDrupalWrapper
 and here is where some of the "fun" is....
 
 and stuff like this works: 
+
 $custom = entity_load('civicrm_custom_value', array(), array('entity_id' => 52, 'entity_table' => 'Contact'));
 dsm($custom);
 $wrapper = entity_metadata_wrapper('civicrm_custom_value', $custom[52]);
@@ -33,5 +34,5 @@ dsm($wrapper->custom_10_1->value());
 
 Entity data structure still a work in progress...but loading works, and saving and deleting won't be a problem...
 
-Working right now to get this working with Drupal forms, then Rules, then we'll see what can or needs be done about rules...
+Working right now to get this working with Drupal forms, then Rules, then we'll see what can or needs be done about Views...
 
