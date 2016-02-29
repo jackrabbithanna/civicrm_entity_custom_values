@@ -2,7 +2,7 @@
 
 /**
  * @file
- * Picasa module views integration.
+ * civicrm_entity_custom_values module views integration.
  */
 
 /**
