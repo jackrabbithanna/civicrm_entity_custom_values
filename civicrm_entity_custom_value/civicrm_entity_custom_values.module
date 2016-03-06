@@ -5,6 +5,36 @@
  * CiviCRM Custom Values module.
  */
 
+function civicrm_entity_custom_values_menu_alter(&$items) {
+  foreach (entity_get_info() as $entity_name => $entity_info) {
+    if (!empty($entity_info['module']) &&
+        $entity_info['module'] == 'civicrm_entity_custom_values'
+    ) {
+      foreach ($entity_info['bundles'] as $file_type => $bundle_info) {
+        if (isset($bundle_info['admin'])) {
+          // Get the base path and access.
+          $path = $bundle_info['admin']['path'];
+          $items[$path] = $items[$path . '/fields'];
+          $items[$path]['type'] = MENU_NORMAL_ITEM;
+          $items[$path]['title'] = $entity_info['label'];
+          $items[$path]['description'] = t('CiviCRM @entity entity', array('@entity' => $entity_name));
+          $items[$path . '/fields']['type'] = MENU_DEFAULT_LOCAL_TASK;
+          $items[$path]['access callback'] = 'civicrm_entity_custom_values_access';
+          $items[$path . '/fields']['access callback'] = 'civicrm_entity_custom_values_access';
+          $items[$path]['access arguments'] = array('admin');
+          $items[$path . '/fields']['access arguments'] = array('admin');
+        }
+      }
+    }
+  }
+}
+
+
+function civicrm_entity_custom_values_form_alter(&$form, &$form_state, $form_id){
+
+
+}
+
 /**
  * Implements hook_entity_info().
  */
@@ -15,12 +45,22 @@ function civicrm_entity_custom_values_entity_info() {
     'description' => t('CiviCRM Custom Value entities, represents all custom groups and fields for an CiviCRM Entity.'),
     'entity class' => 'CiviCRMCustomValueEntity',
     'controller class' => 'CiviCRMCustomValueEntityController',
-    'fieldable' => FALSE,
+    'extra fields controller class' => 'EntityDefaultExtraFieldsController',
+    'fieldable' => TRUE,
     'entity keys' => array(
      // 'name' => 'entity_table',
-      'id' => 'entity_id',
-     // 'bundle' => 'custom_group'
+      'id' => 'id',
+      'bundle' => 'type'
     ),
+    'bundle keys' => array(
+      'bundle' => 'type',
+    ),
+    'admin ui' => array(
+      'path' => 'admin/structure/types/manage/civicrm_custom_value',
+      'file' => 'civicrm_entity_custom_values.entity.inc',
+      'controller class' => 'CivicrmEntityCustomValueUIController',
+    ),
+    'access callback' => 'civicrm_entity_custom_values_access',
     'module' => 'civicrm_entity_custom_values',
     'wrapper class' => 'CiviCRMCustomValueWrapper',
   );
@@ -28,19 +68,20 @@ function civicrm_entity_custom_values_entity_info() {
   return $items;
 }
 
-/*
 function civicrm_entity_custom_values_entity_info_alter(&$entity_info) {
-  $custom_group_query = new EntityFieldQuery();
-  $custom_groups = $custom_group_query->entityCondition('entity_type', 'civicrm_custom_group')
-      ->execute();
-  if(isset($custom_groups['civicrm_custom_group'])){
-    $groups = entity_load('civicrm_custom_group', array_keys($custom_groups['civicrm_custom_group']));
+  $entities = _civicrm_entity_enabled_entities();
+  foreach ($entities as $drupal_entity => $civicrm_entity) {
+    if(_civicrm_entity_custom_values_entity_supports_custom_fields($civicrm_entity)){
+      $entity_info['civicrm_custom_value']['bundles'][$civicrm_entity]['label'] = t('CiviCRM @entity custom fields', array('@entity' => ucwords($civicrm_entity)));
+      $entity_info['civicrm_custom_value']['bundles'][$civicrm_entity]['admin'] = array(
+        'path' => 'admin/structure/types/manage/civicrm_custom_value/' . $civicrm_entity,
+        'access arguments' => array('admin'),
+        'access callback' => 'civicrm_entity_custom_values_access',
+      );
+    }
+
   }
-  $items['civicrm_custom_value']['bundles'] = array();
-  foreach($groups as $group){
-    $entity_info['civicrm_custom_value']['bundles'][$group->name]['label'] = $group->title;
-  }
-}*/
+}
 
 /**
  * Implements hook_entity_property_info().
@@ -48,6 +89,10 @@ function civicrm_entity_custom_values_entity_info_alter(&$entity_info) {
 function civicrm_entity_custom_values_entity_property_info() {
 
   $info['civicrm_custom_value']['properties'] = array(
+    'id' => array(
+      'label' => 'id',
+      'type' => 'integer',
+    ),
     'entity_table' => array(
       'label' => t('Entity Table'),
       'type' => 'text',
@@ -55,6 +100,10 @@ function civicrm_entity_custom_values_entity_property_info() {
     'entity_id' => array(
       'label' => t('Entity ID'),
       'type' => 'integer',
+    ),
+    'type' => array(
+      'label' => t('Type'),
+      'type' => 'text',
     ),
     'groups' => array(
       'label' => t('Groups'),
@@ -97,10 +146,60 @@ function civicrm_entity_custom_values_entity_property_info() {
     ),
   );
 
+  if(civicrm_initialize(TRUE)) {
+    $supported_types = _civicrm_entity_custom_values_get_supported_entities();
+
+    foreach($supported_types as $civicrm_entity => $entity_table) {
+
+      $civicrm_metadata = civicrm_api3($civicrm_entity, 'getfields');
+      $properties = array();
+
+      $fields = $civicrm_metadata['values'];
+     // dsm($fields);
+      foreach ($fields as $key => $value) {
+        if (substr($key, 0, 6) === 'custom') {
+          $field_info = civicrm_entity_custom_values_get_field_info('civicrm_' . $civicrm_entity, $key, $value);
+          unset($field_info[$key]['schema field']);
+          $properties[$key] = $field_info[$key];
+        }
+      }
+      $info['civicrm_custom_value']['properties'] += $properties;
+    }
+  }
+
   return $info;
 }
 
+function civicrm_entity_custom_values_access($op){
+  //dsm($op);
+  return TRUE;
+}
 
+function civicrm_entity_custom_values_entity_query_alter($query){
+ // dsm($query);
+}
+
+function civicrm_entity_custom_values_field_extra_fields_alter(&$info) {
+  $supported_types = _civicrm_entity_custom_values_get_supported_entities();
+
+  foreach($supported_types as $civicrm_entity => $entity_table) {
+
+    $civicrm_metadata = civicrm_api3($civicrm_entity, 'getfields');
+    $info['civicrm_custom_value'][$civicrm_entity]['display']['entity_table'] = $info['civicrm_custom_value']['civicrm_custom_value']['display']['entity_table'];
+    $info['civicrm_custom_value'][$civicrm_entity]['display']['entity_id'] = $info['civicrm_custom_value']['civicrm_custom_value']['display']['entity_id'];
+    $info['civicrm_custom_value'][$civicrm_entity]['display']['groups'] = $info['civicrm_custom_value']['civicrm_custom_value']['display']['groups'];
+    $fields = $civicrm_metadata['values'];
+
+    foreach ($fields as $key => $value) {
+      if (substr($key, 0, 6) === 'custom') {
+        $info['civicrm_custom_value'][$civicrm_entity]['display'][$key] =  $info['civicrm_custom_value']['civicrm_custom_value']['display'][$key];
+
+      }
+    }
+    $info['civicrm_custom_value'][$civicrm_entity]['form'] =  $info['civicrm_custom_value'][$civicrm_entity]['display'];
+  }
+//dsm($info);
+}
 
 /**
  * Implements hook_views_api().
@@ -226,4 +325,22 @@ function civicrm_entity_custom_values_get_field_info($civicrm_entity, $fieldname
   return $info;
   }
 
+}
+
+function _civicrm_entity_custom_values_entity_supports_custom_fields($entity_type){
+  $supported_entities = _civicrm_entity_custom_values_get_supported_entities();
+  if(in_array($entity_type, $supported_entities)){
+    return TRUE;
+  }
+  else {
+    return FALSE;
+  }
+}
+
+function _civicrm_entity_custom_values_get_supported_entities(){
+  return array(
+    'contact' => 'contact',
+    'activity' => 'activity',
+    'participant' => 'participant',
+  );
 }

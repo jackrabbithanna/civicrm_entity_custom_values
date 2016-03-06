@@ -14,6 +14,10 @@ class CiviCRMCustomValueWrapper extends EntityDrupalWrapper {
         'label' => t('Entity ID'),
         'type' => 'integer',
       ),
+      'type' => array(
+        'label' => t('Type'),
+        'type' => 'text',
+      ),
     );
     if(civicrm_initialize(TRUE)) {
       if (isset($this->data->entity_table)) {
@@ -25,7 +29,7 @@ class CiviCRMCustomValueWrapper extends EntityDrupalWrapper {
       }
       $fields = $civicrm_metadata['values'];
       foreach ($this->data as $key => $value) {
-        if (stristr($key, 'custom')) {
+        if (substr($key, 0, 6 ) === 'custom') {
           $key_array = explode('_', $key);
           $custom_id = $key_array[1];
           $custom_value_num = $key_array[2];

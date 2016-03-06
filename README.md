@@ -34,5 +34,15 @@ dsm($wrapper->custom_10_1->value());
 
 Entity data structure still a work in progress...but loading works, and saving and deleting won't be a problem...
 
+Also it now supports bundles for each api entity type that can have custom fields
+
+for example:
+admin/structure/types/manage/civicrm_custom_value/participant/fields
+admin/structure/types/manage/civicrm_custom_value/participant/display
+admin/structure/types/manage/civicrm_custom_value/contact/fields
+admin/structure/types/manage/civicrm_custom_value/participant/display
+
+Only those custom fields that appear on the api entity, appear on these configuration forms
+
 Working right now to get this working with Drupal forms, then Rules, then we'll see what can or needs be done about Views...
 
