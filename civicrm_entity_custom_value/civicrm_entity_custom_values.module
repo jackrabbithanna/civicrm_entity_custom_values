@@ -199,7 +199,7 @@ function civicrm_entity_custom_values_field_extra_fields_alter(&$info) {
   $supported_types = _civicrm_entity_custom_values_get_supported_entities();
 
   foreach($supported_types as $civicrm_entity => $entity_table) {
-
+    civicrm_initialize(TRUE);
     $civicrm_metadata = civicrm_api3($civicrm_entity, 'getfields');
     $info['civicrm_custom_value'][$civicrm_entity]['display']['entity_table'] = $info['civicrm_custom_value']['civicrm_custom_value']['display']['entity_table'];
     $info['civicrm_custom_value'][$civicrm_entity]['display']['entity_id'] = $info['civicrm_custom_value']['civicrm_custom_value']['display']['entity_id'];
