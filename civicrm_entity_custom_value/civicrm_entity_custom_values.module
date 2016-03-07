@@ -29,6 +29,22 @@ function civicrm_entity_custom_values_menu_alter(&$items) {
   }
 }
 
+function civicrm_entity_custom_values_menu(){
+  $items = array();
+  $items['admin/structure/types/manage/civicrm_custom_value'] = array(
+      'title' => 'CiviCRM CustomValue',
+      'type' => MENU_NORMAL_ITEM,
+      'access callback' => 'civicrm_entity_custom_values_access',
+      'access arguments' => array('admin'),
+      'page callback' => 'civicrm_entity_custom_values_bundle_list',
+  );
+  $items['admin/structure/types/manage/civicrm_custom_value/list'] = array(
+      'title' => 'List',
+      'type' => MENU_DEFAULT_LOCAL_TASK,
+      'weight' => -10,
+  );
+  return $items;
+}
 
 function civicrm_entity_custom_values_form_alter(&$form, &$form_state, $form_id){
 
@@ -343,4 +359,30 @@ function _civicrm_entity_custom_values_get_supported_entities(){
     'activity' => 'activity',
     'participant' => 'participant',
   );
+}
+
+function civicrm_entity_custom_values_bundle_list(){
+// Call your hook_entity_info implementation, 'cause it includes all your bundles.
+  $entity_info = entity_get_info('civicrm_custom_value');
+  $headers = array(t('Name'), t('Actions')); // Table Headers
+  $rows = array();
+  foreach ($entity_info['bundles'] as $civicrm_entity => $bundle) {
+    // Get the bundle edit link, add it to a table row.
+    $links = array();
+    $links[] = array('title' => t('Manage Fields'), 'href' => 'admin/structure/types/manage/civicrm_custom_value/' . $civicrm_entity);
+    $links[] = array('title' => t('Manage Display'), 'href' => 'admin/structure/types/manage/civicrm_custom_value/' . $civicrm_entity . '/display');
+    $link_list = theme('links', array(
+        'links' => $links,
+        'attributes' => array('class' => array('links', 'inline')),
+    ));
+    $rows[] = array($bundle['label'], $link_list);
+  }
+  // Format the table array. This is a pretty simple table, you could include
+  // links to the field management pages for each bundle too.
+  $output = array(
+      '#theme' => 'table',
+      '#header' => $headers,
+      '#rows' => $rows,
+  );
+  return $output;
 }
