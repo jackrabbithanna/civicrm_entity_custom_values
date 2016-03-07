@@ -5,6 +5,11 @@
  * CiviCRM Custom Values module.
  */
 
+/**
+ * Implements hook_menu_alter().
+ *
+ * @param $items
+ */
 function civicrm_entity_custom_values_menu_alter(&$items) {
   foreach (entity_get_info() as $entity_name => $entity_info) {
     if (!empty($entity_info['module']) &&
@@ -16,19 +21,25 @@ function civicrm_entity_custom_values_menu_alter(&$items) {
           $path = $bundle_info['admin']['path'];
           $items[$path] = $items[$path . '/fields'];
           $items[$path]['type'] = MENU_NORMAL_ITEM;
-          $items[$path]['title'] = $entity_info['label'];
+          $items[$path]['title'] = $entity_info['label'] . ' ' . $bundle_info['label'];
           $items[$path]['description'] = t('CiviCRM @entity entity', array('@entity' => $entity_name));
           $items[$path . '/fields']['type'] = MENU_DEFAULT_LOCAL_TASK;
           $items[$path]['access callback'] = 'civicrm_entity_custom_values_access';
           $items[$path . '/fields']['access callback'] = 'civicrm_entity_custom_values_access';
           $items[$path]['access arguments'] = array('admin');
           $items[$path . '/fields']['access arguments'] = array('admin');
+          unset($items['admin/structure/types/manage/civicrm_custom_value/add']);
         }
       }
     }
   }
 }
 
+/**
+ * Implements hook_menu().
+ *
+ * @return array
+ */
 function civicrm_entity_custom_values_menu(){
   $items = array();
   $items['admin/structure/types/manage/civicrm_custom_value'] = array(
@@ -84,6 +95,12 @@ function civicrm_entity_custom_values_entity_info() {
   return $items;
 }
 
+
+/**
+ * Implements hook_entity_info_alter().
+ *
+ * @param $entity_info
+ */
 function civicrm_entity_custom_values_entity_info_alter(&$entity_info) {
   $entities = _civicrm_entity_enabled_entities();
   foreach ($entities as $drupal_entity => $civicrm_entity) {
@@ -186,15 +203,35 @@ function civicrm_entity_custom_values_entity_property_info() {
   return $info;
 }
 
+/**
+ * CiviCRMEntityCustomValue access callback
+ *
+ * @param $op
+ * @return bool
+ */
 function civicrm_entity_custom_values_access($op){
   //dsm($op);
   return TRUE;
 }
 
+/**
+ * Implements hook_entity_query_alter().
+ *
+ * For manipulate EntityFieldQuery queries
+ *
+ * @param $query
+ */
 function civicrm_entity_custom_values_entity_query_alter($query){
  // dsm($query);
 }
 
+
+/**
+ * Implements hook_field_extra_fields_alter().
+ *
+ * @param $info
+ * @throws CiviCRM_API3_Exception
+ */
 function civicrm_entity_custom_values_field_extra_fields_alter(&$info) {
   $supported_types = _civicrm_entity_custom_values_get_supported_entities();
 
@@ -227,6 +264,15 @@ function civicrm_entity_custom_values_views_api() {
   );
 }
 
+/**
+ * Ripped a bit of the metadata figuring code from civicrm entity, for per field, not per entity
+ *
+ * @param $civicrm_entity
+ * @param $fieldname
+ * @param $field_specs
+ * @param string $context
+ * @return mixed
+ */
 function civicrm_entity_custom_values_get_field_info($civicrm_entity, $fieldname, $field_specs, $context = ''){
   // Type is empty for custom fields - we should sort that out but
   // skipping for now we are only doing 'integers' at this stage.
@@ -343,6 +389,12 @@ function civicrm_entity_custom_values_get_field_info($civicrm_entity, $fieldname
 
 }
 
+/**
+ * Returns TRUE if entity_type supports custom fields, FALSE otherwise.
+ *
+ * @param $entity_type
+ * @return bool
+ */
 function _civicrm_entity_custom_values_entity_supports_custom_fields($entity_type){
   $supported_entities = _civicrm_entity_custom_values_get_supported_entities();
   if(in_array($entity_type, $supported_entities)){
@@ -353,6 +405,11 @@ function _civicrm_entity_custom_values_entity_supports_custom_fields($entity_typ
   }
 }
 
+/**
+ * Returns list of civicrm entities that support custom fields
+ *
+ * @return array
+ */
 function _civicrm_entity_custom_values_get_supported_entities(){
   return array(
     'contact' => 'contact',
@@ -361,6 +418,11 @@ function _civicrm_entity_custom_values_get_supported_entities(){
   );
 }
 
+/**
+ * Page callback for 'admin/structure/types/manage/civicrm_custom_value'
+ *
+ * @return array
+ */
 function civicrm_entity_custom_values_bundle_list(){
 // Call your hook_entity_info implementation, 'cause it includes all your bundles.
   $entity_info = entity_get_info('civicrm_custom_value');
